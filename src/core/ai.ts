@@ -3,7 +3,8 @@ import type { AIGenerate, AIGenerateRequest, AIOptions } from '../types.js'
 import { DESCRIPTION_MAX, TITLE_MAX } from './meta.js'
 import { truncate } from './text.js'
 
-const DEFAULT_MODEL = 'claude-opus-5-5'
+/** Cheap and fast enough for short meta texts. */
+const DEFAULT_MODEL = 'claude-haiku-5-5'
 
 /** Content sent to the model is capped so a long page stays cheap. */
 const MAX_CONTENT_CHARS = 6000

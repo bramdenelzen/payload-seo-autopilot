@@ -74,7 +74,7 @@ Don't also add `seoPlugin()` or `redirectsPlugin()` yourself. Pass their options
 AI only runs when an editor clicks **Auto-generate** next to the meta title or description. Nothing is generated or saved on its own, so the editor always sees the text first.
 
 - **Off** when `ai` is not set, set to `false`, or when no API key is found. The buttons then give the rule-based text. Payload logs one line at startup when AI is configured but has no key.
-- **Anthropic**: reads `ANTHROPIC_API_KEY`. The default model is `claude-opus-5-5`. For short meta texts, `model: 'claude-haiku-5-5'` costs far less.
+- **Anthropic**: reads `ANTHROPIC_API_KEY`. The default model is `claude-haiku-5-5`, the cheapest current model, which is enough for short meta texts. Set `model` to use another one.
 - **Custom**: `{ provider: 'custom', generate: async ({ kind, title, content, siteName, locale }) => string | null }` for any other provider.
 - If the AI call fails or returns nothing, the rule-based text is used and the error is logged.
 

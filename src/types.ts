@@ -34,7 +34,7 @@ export type AIOptions =
   | {
       /** Defaults to `process.env.ANTHROPIC_API_KEY`. Without a key, AI stays off. */
       apiKey?: string
-      /** Default `claude-opus-5-5`. `claude-haiku-5-5` is far cheaper for this task. */
+      /** Default `claude-haiku-5-5`, the cheapest current model. */
       model?: string
       provider: 'anthropic'
     }
