@@ -1,0 +1,19 @@
+{
+  "extends": "../tsconfig.json",
+  "include": ["**/*.ts", "**/*.tsx", "../src/**/*.ts", "next.config.mjs", ".next/types/**/*.ts"],
+  "exclude": ["node_modules", ".next"],
+  "compilerOptions": {
+    "baseUrl": "./",
+    "rootDir": "..",
+    "allowJs": true,
+    "paths": {
+      "@payload-config": ["./payload.config.ts"],
+      "payload-seo-autopilot": ["../src/index.ts"],
+      "payload-seo-autopilot/next": ["../src/exports/next.ts"]
+    },
+    "plugins": [{ "name": "next" }],
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "declaration": false
+  }
+}

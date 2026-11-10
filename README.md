@@ -117,9 +117,36 @@ A deployment is indexable unless `VERCEL_ENV` is set to something other than `pr
 
 ## Develop
 
+The repository has a playground in `dev/`: a Payload admin plus a small public site that uses the `/next` helpers, the same way a client project would. It imports the plugin straight from `src/`. Only `dist/` is published, so the playground and the tests are never part of the npm package.
+
 ```bash
 pnpm install
-pnpm test       # unit tests + an integration test against a real Payload with SQLite
-pnpm typecheck
+cp dev/.env.example dev/.env   # optional
+pnpm dev                       # http://localhost:3000 and /admin (dev@payloadcms.com / test)
+```
+
+The seed data shows each behaviour:
+
+- Home has no SEO filled in, so everything is generated from its sections.
+- Over ons has editor meta, which wins.
+- Geheim is a draft and stays out of the sitemap.
+- A blog post lives under `/blog`.
+
+Every page shows a "What search engines see" panel, with links to `/sitemap.xml` and `/robots.txt`.
+
+AI in the playground:
+
+- With `ANTHROPIC_API_KEY` set, the Auto-generate buttons call Claude. This costs money per click.
+- With `DEV_FAKE_AI=true`, a fake provider answers instead, which is free.
+- With neither, the buttons give the rule-based text.
+
+### Tests
+
+```bash
+pnpm typecheck   # package and playground
+pnpm test:int    # unit tests (src/**/*.spec.ts) + integration tests against the playground's Payload (dev/int.spec.ts)
+pnpm test:e2e    # Playwright against the running playground: public pages, sitemap, robots and the admin SEO tab
 pnpm build
 ```
+
+The integration tests use their own SQLite file (`dev/int-test.db`), so they don't touch your playground data. The end-to-end tests start `pnpm dev` with `DEV_FAKE_AI=true` if no server is running yet.

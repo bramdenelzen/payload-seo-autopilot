@@ -1,0 +1,35 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 0 auto;
+  max-width: 760px;
+  padding: 2rem 1rem;
+  line-height: 1.5;
+}
+section {
+  margin: 1.5rem 0;
+}
+.seo-panel {
+  background: #f4f6f8;
+  border: 1px solid #d5dbe1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  margin-top: 3rem;
+  padding: 1rem 1.25rem;
+}
+.seo-panel h2 {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+.seo-panel dl > div {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 7rem 1fr;
+}
+.seo-panel dt {
+  color: #5a6672;
+  font-family: ui-monospace, monospace;
+}
+.seo-panel dd {
+  margin: 0;
+  word-break: break-word;
+}

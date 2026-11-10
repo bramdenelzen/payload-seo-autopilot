@@ -51,11 +51,11 @@ const anthropicGenerator = (apiKey: string, model: string): AIGenerate => {
       ({ default: Anthropic }) => new Anthropic({ apiKey }),
     )
 
+    // Haiku has no server-side refusal fallback, so this is a plain request. A refusal
+    // returns null and the editor gets the rule-based text instead.
     const response = await (
       await client
-    ).beta.messages.create({
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
+    ).messages.create({
       max_tokens: 1024,
       messages: [{ content: buildPrompt(request), role: 'user' }],
       model,
