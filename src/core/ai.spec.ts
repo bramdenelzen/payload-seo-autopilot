@@ -132,6 +132,24 @@ describe('cleanOutput', () => {
     expect(cleanOutput("'Brood'", 'title')).toBe('Brood')
   })
 
+  it('keeps only the first line when the model second-guesses itself', () => {
+    const reply =
+      'Fresh Bread Daily in Utrecht Since 1952 | Bakkerij Jansen\n\nWait, that exceeds 60 characters. Let me count...\n\nFresh Bread Baked Daily Since 1952 | Bakkerij Jansen'
+    expect(cleanOutput(reply, 'title')).toBe(
+      'Fresh Bread Daily in Utrecht Since 1952 | Bakkerij Jansen',
+    )
+    expect(cleanOutput('\n\nLekker brood.\nUitleg: dit is 13 tekens.', 'description')).toBe(
+      'Lekker brood.',
+    )
+  })
+
+  it('drops the site suffix of a title that is too long instead of cutting it', () => {
+    const long = 'Ambachtelijk vers brood en gebak uit Utrecht sinds 1952 | Bakkerij Jansen'
+    expect(cleanOutput(long, 'title')).toBe(
+      'Ambachtelijk vers brood en gebak uit Utrecht sinds 1952',
+    )
+  })
+
   it('returns null for empty output', () => {
     expect(cleanOutput('   ', 'description')).toBeNull()
     expect(cleanOutput('""', 'title')).toBeNull()

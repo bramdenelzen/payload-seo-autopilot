@@ -19,7 +19,8 @@ export const buildPrompt = (request: AIGenerateRequest): string => {
   return [
     `Write ${what}`,
     `Write it in the language with code "${request.locale ?? 'nl'}".`,
-    'Use only facts from the page. Reply with the text only, no quotes or explanation.',
+    'Use only facts from the page.',
+    'Reply with the final text only, on one line: no quotes, no explanation, no character counts.',
     '',
     `Website: ${request.siteName}`,
     `Page title: ${request.title || '(none)'}`,
@@ -28,9 +29,14 @@ export const buildPrompt = (request: AIGenerateRequest): string => {
   ].join('\n')
 }
 
-/** Removes quotes or labels a model sometimes adds, and enforces the length limit. */
+/**
+ * Keeps the first line only (models sometimes add a second-guess like "Wait, that exceeds 60
+ * characters..." after the answer), removes quotes or labels, and enforces the length limit.
+ * A title that is too long loses its " | Site" suffix before it is truncated.
+ */
 export const cleanOutput = (text: string, kind: AIGenerateRequest['kind']): null | string => {
-  const cleaned = text
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim()) ?? ''
+  const cleaned = firstLine
     .trim()
     .replace(/^(?:seo[- ]?)?(?:title|meta description|description)\s*:\s*/i, '')
     .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
@@ -40,7 +46,13 @@ export const cleanOutput = (text: string, kind: AIGenerateRequest['kind']): null
     return null
   }
 
-  return truncate(cleaned, kind === 'title' ? TITLE_MAX : DESCRIPTION_MAX)
+  if (kind === 'title') {
+    const suffixAt = cleaned.lastIndexOf(' | ')
+    const fits = cleaned.length <= TITLE_MAX || suffixAt <= 0
+    return truncate(fits ? cleaned : cleaned.slice(0, suffixAt).trim(), TITLE_MAX)
+  }
+
+  return truncate(cleaned, DESCRIPTION_MAX)
 }
 
 const anthropicGenerator = (apiKey: string, model: string): AIGenerate => {
