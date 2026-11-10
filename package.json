@@ -1,6 +1,6 @@
 {
   "name": "payload-seo-autopilot",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Automatic SEO for Payload CMS sites: meta fallbacks, sitemap, robots, canonical URLs, redirects and optional AI suggestions, so clients don't need to know SEO.",
   "license": "MIT",
   "type": "module",
