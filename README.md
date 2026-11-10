@@ -22,11 +22,13 @@ Planned next: automatic 301s when a slug changes, executing redirects in `proxy`
 
 ```bash
 pnpm add payload-seo-autopilot @payloadcms/plugin-seo @payloadcms/plugin-redirects
-# optional, for AI suggestions:
-pnpm add @anthropic-ai/sdk
 ```
 
-The official plugins are peer dependencies, because they pin `payload` to an exact version. Keep them on the same version as `payload`.
+The official plugins are peer dependencies, because they pin `payload` to an exact version. Keep them on the same version as `payload`. The Anthropic SDK is a regular dependency: Next.js bundles the plugin and fails to build when an import of a missing package is anywhere in it, even one that never runs. It is only loaded on the first AI call and never reaches the browser.
+
+Fields with `admin.position: 'sidebar'` stay in the sidebar: plugin-seo's tabs would otherwise move them into the Content tab.
+
+Set `siteUrl` or `NEXT_PUBLIC_SERVER_URL` outside Vercel (Docker, Render). Without it canonical URLs and the sitemap are relative, and Payload logs a warning at startup in production.
 
 ## Configure
 
