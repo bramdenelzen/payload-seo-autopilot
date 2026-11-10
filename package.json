@@ -44,8 +44,10 @@
     "test:int": "vitest run",
     "test:e2e": "playwright test"
   },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.7.0"
+  },
   "peerDependencies": {
-    "@anthropic-ai/sdk": ">=1.7.0",
     "@payloadcms/plugin-redirects": "^3.93.0",
     "@payloadcms/plugin-seo": "^3.93.0",
     "@payloadcms/ui": "^3.93.0",
@@ -54,12 +56,6 @@
   },
   "peerDependenciesMeta": {
     "next": {
-      "optional": true
-    },
-    "@anthropic-ai/sdk": {
-      "optional": true
-    },
-    "@payloadcms/ui": {
       "optional": true
     }
   },
@@ -81,7 +77,6 @@
     "url": "git+https://github.com/bramdenelzen/payload-seo-autopilot.git"
   },
   "devDependencies": {
-    "@anthropic-ai/sdk": "^1.7.0",
     "@payloadcms/db-sqlite": "3.93.0",
     "@payloadcms/next": "3.93.0",
     "@payloadcms/plugin-redirects": "3.93.0",

@@ -149,4 +149,17 @@ describe('seoAutopilot', () => {
     expect(json(collection(config, 'media')?.fields)).not.toContain('GenerateAltButton')
     expect((config.endpoints ?? []).map((e) => e.path)).not.toContain('/seo-autopilot/generate-alt')
   })
+
+  it('keeps sidebar fields in the sidebar instead of the Content tab', () => {
+    const sidebarField: Field = { name: 'pageType', admin: { position: 'sidebar' }, type: 'text' }
+    const config = seoAutopilot({ collections: { pages: true }, siteName: 'B' })(
+      baseConfig([sidebarField]),
+    )
+    const fields = collection(config, 'pages')?.fields ?? []
+    expect(fields[0]?.type).toBe('tabs')
+    expect(fields.slice(1)).toEqual([sidebarField])
+    const tabs = (fields[0] as { tabs: { fields: Field[] }[] }).tabs
+    expect(json(tabs[0]?.fields)).not.toContain('pageType')
+    expect(json(tabs[0]?.fields)).toContain('"name":"title"')
+  })
 })
