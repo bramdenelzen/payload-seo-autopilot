@@ -1,3 +1,4 @@
+import type { AIGenerate } from '../types.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const create = vi.fn()
@@ -12,7 +13,7 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }))
 
-const { buildPrompt, cleanOutput, createGenerator } = await import('./ai.js')
+const { buildPrompt, cleanOutput, createGenerator, withLengthCheck } = await import('./ai.js')
 
 const request = {
   content: 'Wij bakken sinds 1952.',
@@ -44,9 +45,11 @@ describe('createGenerator', () => {
     expect(createGenerator({ provider: 'anthropic' })).toBeTypeOf('function')
   })
 
-  it('returns a custom generator as is', () => {
-    const generate = vi.fn()
-    expect(createGenerator({ generate, provider: 'custom' })).toBe(generate)
+  it('wraps a custom generator with the length check', async () => {
+    const generate = vi.fn<AIGenerate>().mockResolvedValue(`${'a'.repeat(120)}.`)
+    const wrapped = createGenerator({ generate, provider: 'custom' })!
+    expect(await wrapped(request)).toBe(`${'a'.repeat(120)}.`)
+    expect(generate).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -107,10 +110,18 @@ describe('buildPrompt', () => {
   it('asks for the right kind, length and language', () => {
     const title = buildPrompt({ ...request, kind: 'title', locale: 'en' })
     expect(title).toContain('SEO title')
-    expect(title).toContain('at most 60')
+    expect(title).toContain('between 50 and 60 characters')
     expect(title).toContain('| Bakkerij Jansen')
     expect(title).toContain('"en"')
-    expect(buildPrompt(request)).toContain('at most 155')
+    expect(buildPrompt(request)).toContain('between 100 and 150 characters')
+    expect(buildPrompt(request)).not.toContain('earlier answer')
+  })
+
+  it('asks for a correction with the measured length on a retry', () => {
+    const retry = buildPrompt({ ...request, kind: 'title', previous: 'Vers brood' })
+    expect(retry).toContain('Your earlier answer was "Vers brood". It has 10 characters')
+    expect(retry).toContain('too short')
+    expect(buildPrompt({ ...request, previous: 'x'.repeat(170) })).toContain('too long')
   })
 
   it('caps long content and marks missing input', () => {
@@ -122,6 +133,57 @@ describe('buildPrompt', () => {
 
   it('defaults the language to Dutch', () => {
     expect(buildPrompt({ ...request, locale: undefined })).toContain('"nl"')
+  })
+})
+
+describe('withLengthCheck', () => {
+  const title = { ...request, kind: 'title' as const }
+  const desc = (n: number) => `${'b'.repeat(n - 1)}.`
+
+  it('accepts a first answer in range without a retry', async () => {
+    const generate = vi.fn<AIGenerate>().mockResolvedValue(desc(120))
+    expect(await withLengthCheck(generate)(request)).toBe(desc(120))
+    expect(generate).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries a too-short answer with feedback and keeps the answer in range', async () => {
+    const generate = vi
+      .fn<AIGenerate>()
+      .mockResolvedValueOnce(desc(60))
+      .mockResolvedValueOnce(desc(110))
+    expect(await withLengthCheck(generate)(request)).toBe(desc(110))
+    expect(generate).toHaveBeenCalledTimes(2)
+    expect(generate.mock.calls[1]![0].previous).toBe(desc(60))
+  })
+
+  it('stops after three attempts and returns the closest answer', async () => {
+    const generate = vi
+      .fn<AIGenerate>()
+      .mockResolvedValueOnce(desc(40))
+      .mockResolvedValueOnce(desc(90))
+      .mockResolvedValueOnce(desc(70))
+    expect(await withLengthCheck(generate)(request)).toBe(desc(90))
+    expect(generate).toHaveBeenCalledTimes(3)
+  })
+
+  it('cuts a too-long answer to the maximum after the retries', async () => {
+    const generate = vi.fn<AIGenerate>().mockResolvedValue(desc(200))
+    const result = await withLengthCheck(generate)(request)
+    expect(result!.length).toBeLessThanOrEqual(150)
+    expect(generate).toHaveBeenCalledTimes(3)
+  })
+
+  it('adds the site name to a short title when that brings it into range', async () => {
+    // 44 characters, like the title the editor flagged as too short.
+    const short = 'Ambachtelijk brood uit Utrecht sinds 1952 ok'
+    const generate = vi.fn<AIGenerate>().mockResolvedValue(short)
+    const result = await withLengthCheck(generate)({ ...title, siteName: 'Jansen' })
+    expect(result).toBe(`${short} | Jansen`)
+    expect(generate).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns null when the generator gives nothing', async () => {
+    expect(await withLengthCheck(() => Promise.resolve(null))(request)).toBeNull()
   })
 })
 

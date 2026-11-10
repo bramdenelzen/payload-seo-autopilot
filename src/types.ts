@@ -25,6 +25,11 @@ export type AIGenerateRequest = {
   content: string
   siteName: string
   title: string
+  /**
+   * Set on a retry: an earlier answer whose length was outside the advised range. The
+   * generator should write a corrected version.
+   */
+  previous?: string
 }
 
 /** Any text generator. Return `null` to fall back to the rule-based text. */
