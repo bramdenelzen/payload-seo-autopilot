@@ -55,3 +55,11 @@ next-env.d.ts
 
 # test output
 /test-results/
+
+# dev playground
+/dev/dev.db*
+/dev/media
+/dev/.next
+/dev/next-env.d.ts
+/dev/int-test.db*
+/test-results/

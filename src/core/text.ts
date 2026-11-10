@@ -19,6 +19,9 @@ const SKIP_KEYS = new Set([
   'variant',
 ])
 
+/** Keys of interface text such as button labels, which read badly in a description. */
+const UI_KEY = /label|button|cta|alt$/i
+
 const NOT_COPY = /^(?:https?:|mailto:|tel:|\/|#)|^[\w-]+$/
 
 /**
@@ -30,7 +33,7 @@ export const extractText = (value: unknown): string => {
   const parts: string[] = []
 
   const walk = (node: unknown, key?: string): void => {
-    if (key && SKIP_KEYS.has(key)) {
+    if (key && (SKIP_KEYS.has(key) || UI_KEY.test(key))) {
       return
     }
 
@@ -66,7 +69,12 @@ export const extractText = (value: unknown): string => {
 
   walk(value)
 
-  return parts.join(' ').replace(/\s+/g, ' ').trim()
+  // Headings have no closing punctuation; add a full stop so parts read as sentences.
+  return parts
+    .map((part) => (/[.!?…:;]$/.test(part) ? part : `${part}.`))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 const lexicalParagraphs = (root: unknown): string[] => {

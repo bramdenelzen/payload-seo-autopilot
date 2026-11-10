@@ -6,11 +6,13 @@
   "type": "module",
   "exports": {
     ".": {
+      "seo-source": "./src/index.ts",
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
     "./next": {
+      "seo-source": "./src/exports/next.ts",
       "import": "./dist/exports/next.js",
       "types": "./dist/exports/next.d.ts",
       "default": "./dist/exports/next.js"
@@ -27,8 +29,14 @@
     "build:types": "tsc -p tsconfig.build.json",
     "clean": "rimraf {dist,*.tsbuildinfo}",
     "prepare": "pnpm build",
-    "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "test": "pnpm test:int && pnpm test:e2e",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p dev/tsconfig.json",
+    "dev": "next dev dev",
+    "dev:payload": "cross-env NODE_OPTIONS=--conditions=seo-source PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
+    "generate:importmap": "pnpm dev:payload generate:importmap",
+    "generate:types": "pnpm dev:payload generate:types",
+    "test:int": "vitest run",
+    "test:e2e": "playwright test"
   },
   "peerDependencies": {
     "@anthropic-ai/sdk": ">=1.7.0",
@@ -65,21 +73,27 @@
   "devDependencies": {
     "@anthropic-ai/sdk": "^1.7.0",
     "@payloadcms/db-sqlite": "3.93.0",
+    "@payloadcms/next": "3.93.0",
     "@payloadcms/plugin-redirects": "3.93.0",
     "@payloadcms/plugin-seo": "3.93.0",
     "@payloadcms/richtext-lexical": "3.93.0",
     "@payloadcms/ui": "3.93.0",
+    "@playwright/test": "1.63.0",
     "@swc/cli": "0.6.0",
     "@swc/core": "^1.16.22",
     "@types/node": "22.19.9",
     "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "cross-env": "^7.0.3",
     "graphql": "^16.15.0",
     "next": "16.3.3",
     "payload": "3.93.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "rimraf": "3.0.2",
+    "sharp": "0.35.4",
     "typescript": "5.7.3",
+    "vite-tsconfig-paths": "6.0.5",
     "vitest": "4.0.18"
   },
   "pnpm": {

@@ -20,10 +20,13 @@ export const resolveCollectionOptions = (
   }
 }
 
-type Doc = Record<string, unknown>
+/** Any document shape, including generated Payload types without an index signature. */
+export type Doc = object
 
-const stringField = (doc: Doc, field: string): string => {
-  const value = doc?.[field]
+const field = (doc: Doc, name: string): unknown => (doc as Record<string, unknown> | null)?.[name]
+
+const stringField = (doc: Doc, name: string): string => {
+  const value = field(doc, name)
   return typeof value === 'string' ? value.trim() : ''
 }
 
@@ -46,7 +49,7 @@ export const fallbackTitle = (
 
 /** The page's own copy, cut to a description length. Empty when the page has no text yet. */
 export const contentText = (doc: Doc, options: ResolvedCollectionOptions): string =>
-  extractText(options.contentFields.map((field) => doc?.[field]))
+  extractText(options.contentFields.map((name) => field(doc, name)))
 
 export const fallbackDescription = (doc: Doc, options: ResolvedCollectionOptions): string =>
   truncate(contentText(doc, options), DESCRIPTION_MAX)
@@ -74,7 +77,7 @@ export const resolveMeta = (
   options: ResolvedCollectionOptions,
   siteName: string,
 ): { description: string; title: string } => {
-  const meta = (doc?.meta ?? {}) as MetaGroup
+  const meta = (field(doc, 'meta') ?? {}) as MetaGroup
 
   return {
     description: meta.description?.trim() || fallbackDescription(doc, options),

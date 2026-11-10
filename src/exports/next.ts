@@ -3,12 +3,10 @@ import type { Payload } from 'payload'
 
 import type { SeoAutopilotConfig } from '../types.js'
 
-import { docPath, resolveCollectionOptions, resolveMeta } from '../core/meta.js'
+import { type Doc, docPath, resolveCollectionOptions, resolveMeta } from '../core/meta.js'
 import { absoluteUrl, isIndexable, resolveSiteUrl } from '../core/site.js'
 
 export { isIndexable, resolveSiteUrl } from '../core/site.js'
-
-type Doc = Record<string, unknown>
 
 const imageUrl = (image: unknown): null | string => {
   if (!image || typeof image !== 'object') {
@@ -37,7 +35,7 @@ export const buildMetadata = ({
   const { description, title } = resolveMeta(doc, options, config.siteName)
   const path = docPath(doc, options)
   const url = path ? absoluteUrl(siteUrl, path) : undefined
-  const image = imageUrl((doc.meta as Doc | undefined)?.image)
+  const image = imageUrl((doc as { meta?: { image?: unknown } }).meta?.image)
 
   return {
     ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
@@ -90,7 +88,10 @@ export const buildSitemap = async ({
         continue
       }
       entries.push({
-        lastModified: typeof doc.updatedAt === 'string' ? new Date(doc.updatedAt) : undefined,
+        lastModified:
+          typeof (doc as { updatedAt?: unknown }).updatedAt === 'string'
+            ? new Date((doc as { updatedAt: string }).updatedAt)
+            : undefined,
         url: absoluteUrl(siteUrl, path),
       })
     }
