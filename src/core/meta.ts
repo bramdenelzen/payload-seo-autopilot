@@ -2,9 +2,19 @@ import type { CollectionSeoOptions, ResolvedCollectionOptions } from '../types.j
 
 import { extractText, truncate } from './text.js'
 
-/** Google shows roughly 50–60 characters of a title and 150–160 of a description. */
+/**
+ * The ranges plugin-seo's length indicator shows as good (its defaults), so a generated text
+ * never shows up as "too short" or "too long" in the editor.
+ */
+export const TITLE_MIN = 50
 export const TITLE_MAX = 60
-export const DESCRIPTION_MAX = 155
+export const DESCRIPTION_MIN = 100
+export const DESCRIPTION_MAX = 150
+
+export const LENGTH_LIMITS = {
+  description: { max: DESCRIPTION_MAX, min: DESCRIPTION_MIN },
+  title: { max: TITLE_MAX, min: TITLE_MIN },
+} as const
 
 export const resolveCollectionOptions = (
   options: CollectionSeoOptions | true | undefined,

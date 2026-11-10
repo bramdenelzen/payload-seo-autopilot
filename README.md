@@ -76,6 +76,7 @@ AI only runs when an editor clicks **Auto-generate** next to the meta title or d
 - **Off** when `ai` is not set, set to `false`, or when no API key is found. The buttons then give the rule-based text. Payload logs one line at startup when AI is configured but has no key.
 - **Anthropic**: reads `ANTHROPIC_API_KEY`. The default model is `claude-haiku-5-5`, the cheapest current model, which is enough for short meta texts. Set `model` to use another one.
 - **Custom**: `{ provider: 'custom', generate: async ({ kind, title, content, siteName, locale }) => string | null }` for any other provider.
+- **Length check.** Models are bad at counting characters, so the plugin measures every answer against the range plugin-seo marks as good: titles 50–60 characters, descriptions 100–150. A short title first gets " | Site name" when that fits. An answer that is still outside the range goes back to the model with its measured length, at most twice, and the closest answer wins. A text never exceeds the maximum. With a custom provider, `generate` receives `previous` on such a retry.
 - If the AI call fails or returns nothing, the rule-based text is used and the error is logged.
 
 ## Next.js

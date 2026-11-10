@@ -74,7 +74,8 @@ describe('with AI', () => {
     const generate = vi.fn<AIGenerate>().mockResolvedValue('x')
     await setup({ ...custom(generate), defaultLocale: 'de' }).generateTitle(args('pages'))
     await setup(custom(generate)).generateTitle(args('pages'))
-    expect(generate.mock.calls.map(([r]) => r.locale)).toEqual(['de', 'nl'])
+    const firstAttempts = generate.mock.calls.filter(([r]) => !r.previous)
+    expect(firstAttempts.map(([r]) => r.locale)).toEqual(['de', 'nl'])
   })
 
   it('falls back to rule-based text when the generator returns nothing', async () => {

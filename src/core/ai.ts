@@ -1,6 +1,6 @@
 import type { AIGenerate, AIGenerateRequest, AIOptions } from '../types.js'
 
-import { DESCRIPTION_MAX, TITLE_MAX } from './meta.js'
+import { LENGTH_LIMITS } from './meta.js'
 import { truncate } from './text.js'
 
 /** Cheap and fast enough for short meta texts. */
@@ -9,12 +9,25 @@ const DEFAULT_MODEL = 'claude-haiku-5-5'
 /** Content sent to the model is capped so a long page stays cheap. */
 const MAX_CONTENT_CHARS = 6000
 
+/** Attempts per suggestion: the first answer plus up to two corrections of its length. */
+const MAX_ATTEMPTS = 3
+
+const lengthRange = (kind: AIGenerateRequest['kind']) =>
+  `between ${LENGTH_LIMITS[kind].min} and ${LENGTH_LIMITS[kind].max} characters`
+
 export const buildPrompt = (request: AIGenerateRequest): string => {
-  const limit = request.kind === 'title' ? TITLE_MAX : DESCRIPTION_MAX
   const what =
     request.kind === 'title'
-      ? `an SEO title for this page, at most ${limit} characters. End with " | ${request.siteName}" when it fits.`
-      : `an SEO meta description for this page, at most ${limit} characters, that makes a searcher want to click.`
+      ? `an SEO title for this page, ${lengthRange('title')}. End with " | ${request.siteName}" when it fits.`
+      : `an SEO meta description for this page, ${lengthRange('description')}, that makes a searcher want to click.`
+
+  const correction = request.previous
+    ? [
+        '',
+        `Your earlier answer was "${request.previous}". It has ${request.previous.length} characters, which is too ${request.previous.length < LENGTH_LIMITS[request.kind].min ? 'short' : 'long'}.`,
+        `Write a corrected version of ${lengthRange(request.kind)}.`,
+      ]
+    : []
 
   return [
     `Write ${what}`,
@@ -26,15 +39,16 @@ export const buildPrompt = (request: AIGenerateRequest): string => {
     `Page title: ${request.title || '(none)'}`,
     'Page content:',
     request.content.slice(0, MAX_CONTENT_CHARS) || '(no content yet)',
+    ...correction,
   ].join('\n')
 }
 
 /**
  * Keeps the first line only (models sometimes add a second-guess like "Wait, that exceeds 60
- * characters..." after the answer), removes quotes or labels, and enforces the length limit.
- * A title that is too long loses its " | Site" suffix before it is truncated.
+ * characters..." after the answer) and removes quotes or labels. A title that is too long
+ * loses its " | Site" suffix. The length is not enforced here: see `cleanOutput`.
  */
-export const cleanOutput = (text: string, kind: AIGenerateRequest['kind']): null | string => {
+export const cleanText = (text: string, kind: AIGenerateRequest['kind']): null | string => {
   const firstLine = text.split(/\r?\n/).find((line) => line.trim()) ?? ''
   const cleaned = firstLine
     .trim()
@@ -46,14 +60,73 @@ export const cleanOutput = (text: string, kind: AIGenerateRequest['kind']): null
     return null
   }
 
-  if (kind === 'title') {
+  if (kind === 'title' && cleaned.length > LENGTH_LIMITS.title.max) {
     const suffixAt = cleaned.lastIndexOf(' | ')
-    const fits = cleaned.length <= TITLE_MAX || suffixAt <= 0
-    return truncate(fits ? cleaned : cleaned.slice(0, suffixAt).trim(), TITLE_MAX)
+    return suffixAt > 0 ? cleaned.slice(0, suffixAt).trim() : cleaned
   }
 
-  return truncate(cleaned, DESCRIPTION_MAX)
+  return cleaned
 }
+
+/** `cleanText`, cut to the maximum length. */
+export const cleanOutput = (text: string, kind: AIGenerateRequest['kind']): null | string => {
+  const cleaned = cleanText(text, kind)
+  return cleaned === null ? null : truncate(cleaned, LENGTH_LIMITS[kind].max)
+}
+
+/** How far a text's length is outside the advised range; 0 when it is inside. */
+export const lengthMiss = (text: string, kind: AIGenerateRequest['kind']): number => {
+  const { max, min } = LENGTH_LIMITS[kind]
+  return text.length < min ? min - text.length : Math.max(0, text.length - max)
+}
+
+/**
+ * A title that is too short gets " | Site name" when that brings it closer to the range,
+ * which saves a retry.
+ */
+const withSiteName = (text: string, request: AIGenerateRequest): string => {
+  if (request.kind !== 'title' || text.includes(request.siteName)) {
+    return text
+  }
+  const longer = `${text} | ${request.siteName}`
+  return lengthMiss(longer, 'title') < lengthMiss(text, 'title') &&
+    longer.length <= LENGTH_LIMITS.title.max
+    ? longer
+    : text
+}
+
+/**
+ * Models are bad at counting characters, so the length is checked here. An answer outside
+ * plugin-seo's advised range is sent back once or twice with its length, and the closest
+ * answer wins. The result never exceeds the maximum.
+ */
+export const withLengthCheck =
+  (generate: AIGenerate): AIGenerate =>
+  async (request) => {
+    let best: null | string = null
+
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      const raw = await generate(
+        attempt === 0 ? request : { ...request, previous: best ?? undefined },
+      )
+      const text = raw ? cleanText(raw, request.kind) : null
+
+      if (!text) {
+        break
+      }
+
+      const candidate = withSiteName(text, request)
+
+      if (best === null || lengthMiss(candidate, request.kind) < lengthMiss(best, request.kind)) {
+        best = candidate
+      }
+      if (lengthMiss(best, request.kind) === 0) {
+        break
+      }
+    }
+
+    return best === null ? null : truncate(best, LENGTH_LIMITS[request.kind].max)
+  }
 
 const anthropicGenerator = (apiKey: string, model: string): AIGenerate => {
   let client: Promise<import('@anthropic-ai/sdk').default> | undefined
@@ -80,7 +153,7 @@ const anthropicGenerator = (apiKey: string, model: string): AIGenerate => {
 
     const text = response.content.map((block) => (block.type === 'text' ? block.text : '')).join('')
 
-    return cleanOutput(text, request.kind)
+    return cleanText(text, request.kind)
   }
 }
 
@@ -94,7 +167,7 @@ export const createGenerator = (options: AIOptions | false | undefined): AIGener
   }
 
   if (options.provider === 'custom') {
-    return options.generate
+    return withLengthCheck(options.generate)
   }
 
   const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY
@@ -103,5 +176,5 @@ export const createGenerator = (options: AIOptions | false | undefined): AIGener
     return null
   }
 
-  return anthropicGenerator(apiKey, options.model ?? DEFAULT_MODEL)
+  return withLengthCheck(anthropicGenerator(apiKey, options.model ?? DEFAULT_MODEL))
 }
