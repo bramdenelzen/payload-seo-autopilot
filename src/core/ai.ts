@@ -136,7 +136,7 @@ export const withLengthCheck =
 
 type AnthropicClient = import('@anthropic-ai/sdk').default
 
-/** The SDK is an optional peer dependency, so it is only loaded on the first AI call. */
+/** The SDK is only loaded on the first AI call, so sites without AI never load it. */
 const lazyClient = (apiKey: string) => {
   let client: Promise<AnthropicClient> | undefined
   return () =>

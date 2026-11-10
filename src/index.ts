@@ -1,4 +1,4 @@
-import type { Config, Field } from 'payload'
+import type { CollectionConfig, Config, Field } from 'payload'
 
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
@@ -9,6 +9,7 @@ import { createAltGenerator } from './core/ai.js'
 import { createAltEndpoint, withAltButton } from './core/alt.js'
 import { createGenerateFunctions } from './core/generate.js'
 import { resolveCollectionOptions } from './core/meta.js'
+import { resolveSiteUrl } from './core/site.js'
 
 export type {
   AIAltRequest,
@@ -32,6 +33,36 @@ const hasTopLevelField = (fields: Field[], name: string): boolean =>
           (tab) => ('name' in tab && tab.name === name) || hasTopLevelField(tab.fields, name),
         )),
   )
+
+/**
+ * plugin-seo's tabbed UI puts every existing field in a "Content" tab, including fields
+ * meant for the sidebar (slug, status, page type). Those only render in the sidebar at the
+ * top level, so they are moved back out of the tab.
+ */
+export const keepSidebarFields = (collection: CollectionConfig): CollectionConfig => {
+  const [first, ...rest] = collection.fields
+  if (first?.type !== 'tabs' || !first.tabs[0]) {
+    return collection
+  }
+  const [content, ...otherTabs] = first.tabs
+  const isSidebar = (field: Field) =>
+    'admin' in field && (field.admin as { position?: string } | undefined)?.position === 'sidebar'
+  const sidebar = content.fields.filter(isSidebar)
+  if (!sidebar.length || 'name' in content) {
+    return collection
+  }
+  return {
+    ...collection,
+    fields: [
+      {
+        ...first,
+        tabs: [{ ...content, fields: content.fields.filter((f) => !isSidebar(f)) }, ...otherTabs],
+      },
+      ...sidebar,
+      ...rest,
+    ],
+  }
+}
 
 export const seoAutopilot =
   (options: SeoAutopilotConfig) =>
@@ -75,6 +106,15 @@ export const seoAutopilot =
       })(config)
     }
 
+    if (options.seo !== false) {
+      config = {
+        ...config,
+        collections: config.collections?.map((c) =>
+          slugs.includes(c.slug) ? keepSidebarFields(c) : c,
+        ),
+      }
+    }
+
     if (options.redirects !== false) {
       config = redirectsPlugin({
         collections: slugs,
@@ -105,6 +145,12 @@ export const seoAutopilot =
       if (options.ai && !generators.aiEnabled) {
         payload.logger.info(
           '[seo-autopilot] AI suggestions are off: no API key found. Rule-based text is used.',
+        )
+      }
+      if (process.env.NODE_ENV === 'production' && !resolveSiteUrl(options.siteUrl)) {
+        payload.logger.warn(
+          '[seo-autopilot] No site URL: set `siteUrl` or NEXT_PUBLIC_SERVER_URL. Canonical URLs ' +
+            'and the sitemap are relative until then.',
         )
       }
       await previousOnInit?.(payload)
