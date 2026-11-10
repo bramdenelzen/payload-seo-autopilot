@@ -11,6 +11,12 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
+    "./client": {
+      "seo-source": "./src/exports/client.tsx",
+      "import": "./dist/exports/client.js",
+      "types": "./dist/exports/client.d.ts",
+      "default": "./dist/exports/client.js"
+    },
     "./next": {
       "seo-source": "./src/exports/next.ts",
       "import": "./dist/exports/next.js",
@@ -42,6 +48,7 @@
     "@anthropic-ai/sdk": ">=1.7.0",
     "@payloadcms/plugin-redirects": "^3.93.0",
     "@payloadcms/plugin-seo": "^3.93.0",
+    "@payloadcms/ui": "^3.93.0",
     "next": ">=15",
     "payload": "^3.93.0"
   },
@@ -50,6 +57,9 @@
       "optional": true
     },
     "@anthropic-ai/sdk": {
+      "optional": true
+    },
+    "@payloadcms/ui": {
       "optional": true
     }
   },

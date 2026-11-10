@@ -12,7 +12,7 @@ const baseConfig = (extraFields: Field[] = []): Config =>
         slug: 'pages',
       },
       { fields: [{ name: 'title', type: 'text' }], slug: 'posts' },
-      { fields: [], slug: 'media', upload: true },
+      { fields: [{ name: 'alt', type: 'text' }], slug: 'media', upload: true },
     ],
   }) as unknown as Config
 
@@ -126,5 +126,27 @@ describe('seoAutopilot', () => {
     await quiet.onInit?.({ logger: { info } } as never)
     expect(info).not.toHaveBeenCalled()
     vi.unstubAllEnvs()
+  })
+
+  it('adds the alt text button and endpoint, enabled only when AI is on', () => {
+    const off = seoAutopilot({ collections: { pages: true }, siteName: 'B' })(baseConfig())
+    expect(json(collection(off, 'media')?.fields)).toContain('GenerateAltButton')
+    expect(json(collection(off, 'media')?.fields)).toContain('"enabled":false')
+    expect((off.endpoints ?? []).map((e) => e.path)).toContain('/seo-autopilot/generate-alt')
+
+    const on = seoAutopilot({
+      ai: { generate: vi.fn(), generateAlt: vi.fn(), provider: 'custom' },
+      collections: { pages: true },
+      siteName: 'B',
+    })(baseConfig())
+    expect(json(collection(on, 'media')?.fields)).toContain('"enabled":true')
+  })
+
+  it('leaves the alt field alone with altText: false', () => {
+    const config = seoAutopilot({ altText: false, collections: { pages: true }, siteName: 'B' })(
+      baseConfig(),
+    )
+    expect(json(collection(config, 'media')?.fields)).not.toContain('GenerateAltButton')
+    expect((config.endpoints ?? []).map((e) => e.path)).not.toContain('/seo-autopilot/generate-alt')
   })
 })

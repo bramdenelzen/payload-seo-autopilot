@@ -13,7 +13,15 @@ vi.mock('@anthropic-ai/sdk', () => ({
   },
 }))
 
-const { buildPrompt, cleanOutput, createGenerator, withLengthCheck } = await import('./ai.js')
+const {
+  buildAltPrompt,
+  buildPrompt,
+  cleanAlt,
+  cleanOutput,
+  createAltGenerator,
+  createGenerator,
+  withLengthCheck,
+} = await import('./ai.js')
 
 const request = {
   content: 'Wij bakken sinds 1952.',
@@ -215,5 +223,80 @@ describe('cleanOutput', () => {
   it('returns null for empty output', () => {
     expect(cleanOutput('   ', 'description')).toBeNull()
     expect(cleanOutput('""', 'title')).toBeNull()
+  })
+})
+
+describe('alt text', () => {
+  const altRequest = {
+    filename: 'brood.jpg',
+    image: 'aW1hZ2U=',
+    locale: 'en',
+    mediaType: 'image/jpeg' as const,
+    siteName: 'Bakkerij Jansen',
+  }
+
+  it('is off without AI, without a key, or without a custom generateAlt', () => {
+    vi.stubEnv('ANTHROPIC_API_KEY', '')
+    expect(createAltGenerator(undefined)).toBeNull()
+    expect(createAltGenerator(false)).toBeNull()
+    expect(createAltGenerator({ provider: 'anthropic' })).toBeNull()
+    expect(createAltGenerator({ generate: vi.fn(), provider: 'custom' })).toBeNull()
+    vi.unstubAllEnvs()
+  })
+
+  it('sends the image and the prompt to Haiku', async () => {
+    create.mockResolvedValue({
+      content: [
+        {
+          text: 'Alt: "Fresh sourdough loaf on a wooden board"\nThat is 42 characters.',
+          type: 'text',
+        },
+      ],
+      stop_reason: 'end_turn',
+    })
+    const generate = createAltGenerator({ apiKey: 'k', provider: 'anthropic' })!
+    expect(await generate(altRequest)).toBe('Fresh sourdough loaf on a wooden board')
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          {
+            content: [
+              {
+                source: { data: 'aW1hZ2U=', media_type: 'image/jpeg', type: 'base64' },
+                type: 'image',
+              },
+              { text: buildAltPrompt(altRequest), type: 'text' },
+            ],
+            role: 'user',
+          },
+        ],
+        model: 'claude-haiku-5-5',
+      }),
+    )
+  })
+
+  it('returns null on a refusal', async () => {
+    create.mockResolvedValue({ content: [], stop_reason: 'refusal' })
+    expect(await createAltGenerator({ apiKey: 'k', provider: 'anthropic' })!(altRequest)).toBeNull()
+  })
+
+  it('cleans and caps a custom provider answer', async () => {
+    const generate = createAltGenerator({
+      generate: vi.fn(),
+      generateAlt: () => Promise.resolve(`"${'woord '.repeat(40)}"`),
+      provider: 'custom',
+    })!
+    const alt = await generate(altRequest)
+    expect(alt!.length).toBeLessThanOrEqual(125)
+    expect(alt).not.toContain('"')
+  })
+
+  it('asks for language, length and no "image of"', () => {
+    const prompt = buildAltPrompt(altRequest)
+    expect(prompt).toContain('at most 125 characters')
+    expect(prompt).toContain('"en"')
+    expect(prompt).toContain('brood.jpg')
+    expect(prompt).toContain('image of')
+    expect(cleanAlt('   ')).toBeNull()
   })
 })

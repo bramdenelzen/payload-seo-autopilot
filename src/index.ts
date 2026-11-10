@@ -5,11 +5,15 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 
 import type { SeoAutopilotConfig } from './types.js'
 
+import { createAltGenerator } from './core/ai.js'
+import { createAltEndpoint, withAltButton } from './core/alt.js'
 import { createGenerateFunctions } from './core/generate.js'
 import { resolveCollectionOptions } from './core/meta.js'
 
 export type {
+  AIAltRequest,
   AIGenerate,
+  AIGenerateAlt,
   AIGenerateRequest,
   AIOptions,
   CollectionSeoOptions,
@@ -76,6 +80,24 @@ export const seoAutopilot =
         collections: slugs,
         ...options.redirects,
       })(config)
+    }
+
+    if (options.altText !== false) {
+      // The button is always registered, so the import map does not depend on whether an
+      // API key happens to be set when it is generated. Without AI it renders nothing.
+      const altGenerator = createAltGenerator(options.ai)
+      const altCollection = options.altText?.collection ?? options.uploadsCollection ?? 'media'
+      const altField = options.altText?.field ?? 'alt'
+
+      config = {
+        ...config,
+        collections: config.collections?.map((collection) =>
+          collection.slug === altCollection
+            ? withAltButton(collection, altField, Boolean(altGenerator))
+            : collection,
+        ),
+        endpoints: [...(config.endpoints ?? []), createAltEndpoint(altGenerator, options)],
+      }
     }
 
     const previousOnInit = config.onInit

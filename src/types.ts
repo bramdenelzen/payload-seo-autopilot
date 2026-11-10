@@ -32,6 +32,19 @@ export type AIGenerateRequest = {
   previous?: string
 }
 
+export type AIAltRequest = {
+  /** The image as base64, already scaled down in the browser (longest side at most 1024 px). */
+  image: string
+  mediaType: 'image/gif' | 'image/jpeg' | 'image/png' | 'image/webp'
+  /** Language for the alt text, e.g. `nl`. */
+  locale?: string
+  filename?: string
+  siteName: string
+}
+
+/** Writes alt text for an image. Return `null` when there is no suggestion. */
+export type AIGenerateAlt = (request: AIAltRequest) => Promise<null | string>
+
 /** Any text generator. Return `null` to fall back to the rule-based text. */
 export type AIGenerate = (request: AIGenerateRequest) => Promise<null | string>
 
@@ -46,6 +59,8 @@ export type AIOptions =
   | {
       /** Bring your own provider. */
       generate: AIGenerate
+      /** Optional: alt text for images. Without it, the alt text button is not shown. */
+      generateAlt?: AIGenerateAlt
       provider: 'custom'
     }
 
@@ -74,6 +89,12 @@ export type SeoAutopilotConfig = {
   siteUrl?: string
   /** Upload collection for `meta.image`. Default `media`. */
   uploadsCollection?: string
+  /**
+   * A "Generate alt text" button under the alt field of the upload collection, also in the
+   * upload drawer before the file is saved. Only shown when AI is on. Defaults to the
+   * `uploadsCollection` and a top-level text field named `alt`. `false` turns it off.
+   */
+  altText?: false | { collection?: string; field?: string }
 }
 
 export type ResolvedCollectionOptions = Required<CollectionSeoOptions>

@@ -1,6 +1,6 @@
 {
   "extends": "../tsconfig.json",
-  "include": ["**/*.ts", "**/*.tsx", "../src/**/*.ts", "next.config.mjs", ".next/types/**/*.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "../src/**/*.ts", "../src/**/*.tsx", "next.config.mjs", ".next/types/**/*.ts"],
   "exclude": ["node_modules", ".next"],
   "compilerOptions": {
     "baseUrl": "./",
@@ -9,6 +9,7 @@
     "paths": {
       "@payload-config": ["./payload.config.ts"],
       "payload-seo-autopilot": ["../src/index.ts"],
+      "payload-seo-autopilot/client": ["../src/exports/client.tsx"],
       "payload-seo-autopilot/next": ["../src/exports/next.ts"]
     },
     "plugins": [{ "name": "next" }],

@@ -1,4 +1,10 @@
-import type { AIGenerate, AIGenerateRequest, AIOptions } from '../types.js'
+import type {
+  AIAltRequest,
+  AIGenerate,
+  AIGenerateAlt,
+  AIGenerateRequest,
+  AIOptions,
+} from '../types.js'
 
 import { LENGTH_LIMITS } from './meta.js'
 import { truncate } from './text.js'
@@ -128,18 +134,25 @@ export const withLengthCheck =
     return best === null ? null : truncate(best, LENGTH_LIMITS[request.kind].max)
   }
 
+type AnthropicClient = import('@anthropic-ai/sdk').default
+
+/** The SDK is an optional peer dependency, so it is only loaded on the first AI call. */
+const lazyClient = (apiKey: string) => {
+  let client: Promise<AnthropicClient> | undefined
+  return () =>
+    (client ??= import('@anthropic-ai/sdk').then(
+      ({ default: Anthropic }) => new Anthropic({ apiKey }),
+    ))
+}
+
 const anthropicGenerator = (apiKey: string, model: string): AIGenerate => {
-  let client: Promise<import('@anthropic-ai/sdk').default> | undefined
+  const client = lazyClient(apiKey)
 
   return async (request) => {
-    client ??= import('@anthropic-ai/sdk').then(
-      ({ default: Anthropic }) => new Anthropic({ apiKey }),
-    )
-
     // Haiku has no server-side refusal fallback, so this is a plain request. A refusal
     // returns null and the editor gets the rule-based text instead.
     const response = await (
-      await client
+      await client()
     ).messages.create({
       max_tokens: 1024,
       messages: [{ content: buildPrompt(request), role: 'user' }],
@@ -177,4 +190,88 @@ export const createGenerator = (options: AIOptions | false | undefined): AIGener
   }
 
   return withLengthCheck(anthropicGenerator(apiKey, options.model ?? DEFAULT_MODEL))
+}
+
+/** Screen readers read alt text in one go; around 125 characters is the common advice. */
+export const ALT_MAX = 125
+
+export const buildAltPrompt = (request: AIAltRequest): string =>
+  [
+    `Write alt text for this image on the website "${request.siteName}", at most ${ALT_MAX} characters.`,
+    `Write it in the language with code "${request.locale ?? 'nl'}".`,
+    'Describe what is visible and matters to a visitor who cannot see it. Do not start with "image of" or "photo of".',
+    request.filename ? `The file is called "${request.filename}".` : '',
+    'Reply with the alt text only, on one line: no quotes, no explanation.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+/** First line without quotes or a label, cut to `ALT_MAX`. */
+export const cleanAlt = (text: string): null | string => {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim()) ?? ''
+  const cleaned = firstLine
+    .trim()
+    .replace(/^alt(?:[- ]?text)?\s*:\s*/i, '')
+    .replace(/^["'“”‘’]+|["'“”‘’]+$/g, '')
+    .trim()
+  return cleaned ? truncate(cleaned, ALT_MAX) : null
+}
+
+const anthropicAltGenerator = (apiKey: string, model: string): AIGenerateAlt => {
+  const client = lazyClient(apiKey)
+
+  return async (request) => {
+    const response = await (
+      await client()
+    ).messages.create({
+      max_tokens: 1024,
+      messages: [
+        {
+          content: [
+            {
+              source: { data: request.image, media_type: request.mediaType, type: 'base64' },
+              type: 'image',
+            },
+            { text: buildAltPrompt(request), type: 'text' },
+          ],
+          role: 'user',
+        },
+      ],
+      model,
+      output_config: { effort: 'low' },
+    })
+
+    if (response.stop_reason === 'refusal') {
+      return null
+    }
+
+    return cleanAlt(
+      response.content.map((block) => (block.type === 'text' ? block.text : '')).join(''),
+    )
+  }
+}
+
+/**
+ * The alt text generator, or `null` when AI is off or a custom provider has no
+ * `generateAlt`.
+ */
+export const createAltGenerator = (
+  options: AIOptions | false | undefined,
+): AIGenerateAlt | null => {
+  if (!options) {
+    return null
+  }
+
+  if (options.provider === 'custom') {
+    const generateAlt = options.generateAlt
+    return generateAlt
+      ? async (request) => {
+          const text = await generateAlt(request)
+          return text ? cleanAlt(text) : null
+        }
+      : null
+  }
+
+  const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY
+  return apiKey ? anthropicAltGenerator(apiKey, options.model ?? DEFAULT_MODEL) : null
 }
