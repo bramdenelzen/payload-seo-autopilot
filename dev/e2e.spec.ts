@@ -1,6 +1,10 @@
 import { expect, test } from '@playwright/test'
+import path from 'path'
+import { fileURLToPath } from 'url'
 
 import { devUser } from './helpers/credentials.js'
+
+const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 test.describe('public site', () => {
   test('home page gets generated title, description and canonical', async ({ page }) => {
@@ -81,5 +85,25 @@ test.describe('admin', () => {
     const description = page.locator('#field-meta__description')
     await generate.nth(1).click()
     await expect(description).toHaveValue('AI description for Home.')
+  })
+
+  test('the upload drawer generates alt text before the image is saved', async ({ page }) => {
+    await page.goto('/admin')
+    await page.fill('#field-email', devUser.email)
+    await page.fill('#field-password', devUser.password)
+    await page.click('.form-submit button')
+    await expect(page).toHaveTitle(/Dashboard/, { timeout: 90_000 })
+
+    await page.goto('/admin/collections/pages')
+    await page.getByRole('link', { name: 'Home' }).first().click()
+    await page.getByRole('button', { name: 'SEO' }).click()
+    await page.getByRole('button', { name: 'Create New' }).click()
+
+    const drawer = page.locator('dialog').last()
+    await drawer.locator('input[type=file]').setInputFiles(path.join(dirname, 'fixtures/brood.png'))
+    await drawer.getByRole('button', { name: 'Generate alt text' }).click()
+
+    // The fake provider echoes the filename and whether image data arrived.
+    await expect(drawer.locator('#field-alt')).toHaveValue('AI alt for brood.png (image received)')
   })
 })

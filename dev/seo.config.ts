@@ -14,6 +14,10 @@ export const seoConfig = defineSeoConfig({
             Promise.resolve(
               kind === 'title' ? `AI: ${title} | Bakkerij Jansen` : `AI description for ${title}.`,
             ),
+          generateAlt: ({ filename, image }) =>
+            Promise.resolve(
+              `AI alt for ${filename ?? 'image'} (${image.length > 0 ? 'image received' : 'no image'})`,
+            ),
           provider: 'custom',
         }
       : false,
